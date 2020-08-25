@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from discord import Embed 
 from discord.ext.commands import Bot as BotBase
 from discord.ext.commands import CommandNotFound
@@ -18,7 +19,7 @@ class Bot(BotBase):
 		self.guild = None
 		self.scheduler = AsyncIOScheduler()
 
-		db.autosave()
+		db.autosave(self.scheduler)
 		super().__init__(command_prefix=PREFIX, owner_ids=OWNER_IDS)
 
 	def run(self, version):
@@ -28,7 +29,14 @@ class Bot(BotBase):
 			self.TOKEN = tf.read()
 
 		print("runnning bot...")
-		super().run(self.TOKEN, reconnect=True)   
+		super().run(self.TOKEN, reconnect=True)
+
+	async def print_message(self):
+	   channel = self.get_channel(729852419869245502)
+	   await channel.send("Bot Uptime Test.")
+
+	async def rules_reminder(self):
+	   await self.stdout.send("Weekly reminder to check the rules!")
 
 	async def on_connect(self):
 		print("bot online")
@@ -40,10 +48,7 @@ class Bot(BotBase):
 		if err == "on_command_error":
 			await args[0].send("Something went wrong...")
 
-		else:
-			channel = self.get_channel(729852419869245502)
-			await channel.send("An error occurred...")
-
+		await self.stdout.send("An error occurred...")
 		raise
 
 	async def on_command_error(self, ctx, exc):
@@ -60,10 +65,12 @@ class Bot(BotBase):
 		if not self.ready:
 			self.ready = True
 			self.guild = self.get_guild(729852418988441672)
+			self.stdout = self.get_channel(729852419869245502)
+			self.scheduler.add_job(self.print_message, CronTrigger(minute="30"))
+			self.scheduler.add_job(self.rules_reminder, CronTrigger(day_of_week=0, hour=12, minute=0, second=0))
 			self.scheduler.start()
 
-			channel = self.get_channel(729852419869245502)
-			await channel.send("Hello!")
+			await self.stdout.send("Hello!")
 
 			embed = Embed(title="Now online.", description="Welcome to Ducky Bot!", 
 						  colour=0x6A3B8F, timestamp=datetime.utcnow())
