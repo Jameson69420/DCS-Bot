@@ -3,6 +3,9 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord import Embed 
 from discord.ext.commands import Bot as BotBase
+from discord.ext.commands import CommandNotFound
+
+from ..db import db
 
 PREFIX = ","
 OWNER_IDS = [636894499515400213, 700189778817318934, 341047698255773696]
@@ -15,6 +18,7 @@ class Bot(BotBase):
 		self.guild = None
 		self.scheduler = AsyncIOScheduler()
 
+		db.autosave()
 		super().__init__(command_prefix=PREFIX, owner_ids=OWNER_IDS)
 
 	def run(self, version):
@@ -32,11 +36,31 @@ class Bot(BotBase):
 	async def on_disconnect(self):
 		print("bot offline")
 
+	async def on_error(self, err, *args, **kwargs):
+		if err == "on_command_error":
+			await args[0].send("Something went wrong...")
+
+		else:
+			channel = self.get_channel(729852419869245502)
+			await channel.send("An error occurred...")
+
+		raise
+
+	async def on_command_error(self, ctx, exc):
+		if isinstance(exc, CommandNotFound):
+			pass
+
+		elif hasattr(exc, "original"):
+			raise exc.original
+
+		else:
+			raise exc
+
 	async def on_ready(self):
 		if not self.ready:
 			self.ready = True
 			self.guild = self.get_guild(729852418988441672)
-			print("bot ready")
+			self.scheduler.start()
 
 			channel = self.get_channel(729852419869245502)
 			await channel.send("Hello!")
@@ -52,6 +76,8 @@ class Bot(BotBase):
 			embed.set_footer(text=" made by Jameson#0069")
 			embed.set_thumbnail(url=self.guild.icon_url)
 			await channel.send(embed=embed)
+
+			print("bot ready")
 
 		else:
 			print("bot reconnected")
